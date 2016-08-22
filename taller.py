@@ -5,6 +5,7 @@ from PyQt4.QtCore import *
 from PyQt4.QtGui import *
 from PyQt4 import QtCore, QtGui, uic
 from PyQt4 import QtCore as qtcore
+from time import sleep
 from model import Experience, ExperienceExecutor, DataReaderAlert, tablemodel
 from view import SignalTypeDelegate, OptimoDialog, TestSignalDialog
 from Controller import ExpFileManager
@@ -32,19 +33,6 @@ class WorkerStart(qtcore.QThread):
         self.emit(self.signalhab, "")
         logging.debug('Deteniendo')
 
-class WorkerRestart(qtcore.QThread):
-    def __init__(self, executor):
-        qtcore.QThread.__init__(self, parent=app)
-        self.executor = executor
-        self.signal = qtcore.SIGNAL("signal")
-        self.signalhab = qtcore.SIGNAL("signalhab")
-    
-    def run(self):
-        self.executor.restartExecution()
-        if self.executor.error:
-            self.emit(self.signal, "")
-        self.emit(self.signalhab, "")
-
 class EEControlWindowClass(QtGui.QMainWindow, form_class):
   
   def start(self):
@@ -61,30 +49,33 @@ class EEControlWindowClass(QtGui.QMainWindow, form_class):
       self.connect(startThread, startThread.signalhab, self.habilitarTabla)
       startThread.start()
       self.start_btn.setEnabled(False)
+      self.pause_btn.setEnabled(True)
+
 
   def updateVoltageChange(self, val):
       self.readvlbl.setText(val)
 
   def pause(self):
-
       if self.running :
-        self.running = False
-        self.executor.pauseExecution()
-        self.status.setText('En Pausa')
+          self.running = False
+          self.executor.pauseExecution()
+          self.status.setText('En Pausa')
       else:
-        self.running = True
-        self.status.setText('Reanudando...')
-        restartThread = WorkerRestart(self.executor)
-        self.connect(restartThread, restartThread.signal, self.showError)
-        self.connect(restartThread, restartThread.signalhab, self.habilitarTabla)
-        restartThread.start()
+          self.status.setText('Reanudando...')
+          restartThread = WorkerStart(self.executor)
+          self.connect(restartThread, restartThread.signal, self.showError)
+          self.connect(restartThread, restartThread.signalhab, self.habilitarTabla)
+          restartThread.start()
+          self.running = True
       
       QApplication.processEvents()
 
   def stop(self):
+      self.running = False
       self.executor.stopExecution()
       self.status.setText('Detenido')
       self.start_btn.setEnabled(True)
+      self.pause_btn.setEnabled(False)
       QApplication.processEvents()
 
   def newSet(self):
@@ -106,20 +97,18 @@ class EEControlWindowClass(QtGui.QMainWindow, form_class):
           self.tableView.model().removeRows(index.row(), 1)
 
   def showHallarOpt(self):
-      text, ok = OptimoDialog().getff()
-      if ok:
-          print(str(text))
+      OptimoDialog().getff()
 
   def testSignal(self):
-      ok = TestSignalDialog().getff()
-      if ok:
-          print('OK')
+      TestSignalDialog().getff()
 
   def showError(self):
+      self.running = False
       msg = DataReaderAlert()
       msg.exec_()
 
   def habilitarTabla(self):
+      self.running = False
       self.start_btn.setEnabled(True)
       self.tableView.setEditTriggers(QtGui.QAbstractItemView.AllEditTriggers)
 

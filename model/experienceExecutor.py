@@ -3,7 +3,7 @@
 from PyQt4.QtCore import *
 from PyQt4.QtGui import *
 from time import sleep
-import threading, logging
+import threading, logging, math
 from PyDAQmx import *
 from Controller import ExperienceController, datareader, timecounter
 
@@ -22,50 +22,52 @@ class ExperienceExecutor():
     self.readvlbl = readvlbl
     self.read_enabled = read_enabled
     self.running = False
-    self.itemRunning = None
-    self.lastItem = 999999
+    self.lastItemIndex = None
     self.experienceCont = None
     self.counterObj = None
     self.error = False
 
   def startExecution(self):
-    self.executeFrom(0)
-
-  def restartExecution(self):
-    maxx = len(self.items)
-    i = self.lastItem
-    
-    if (self.lastItem < maxx)  & (self.running == False):
-      self.restart()
-      i = i + 1
-      sleep(self.waiting.value())
-
+    self.running = True
+    i = self.restartExecution()
     self.executeFrom(i)
 
+  def restartExecution(self):
+
+    if self.lastItemIndex is not None:
+        i = self.lastItemIndex
+        self.signalAction(self.items[i], True)
+        i = i + 1
+        if self.running:
+            sleep(self.waiting.value())
+        return i
+    else:
+        return 0 #desde el principio
+
   def executeFrom(self, start):
+    
     self.error = False
-    self.running = True
     maxx = len(self.items)
     i = start
 
     while ( (i < maxx) & self.running ):
-      self.lastItem = i
-      self.itemRunning = self.items[i]
-      self.expIdLabel.setText(str(self.itemRunning.id))
+      self.lastItemIndex = i
+      item = self.items[i]
+      self.expIdLabel.setText(str(item.id))
       try:
-        self.smokeAction(self.itemRunning)
-        self.cameraAction(self.itemRunning)
-        self.signalAction(self.itemRunning)
-        sleep(self.waiting.value())
+        self.smokeAction(item)
+        self.cameraAction(item)
+        self.signalAction(item, False)
+        if self.running:
+            sleep(self.waiting.value())
         i = i + 1
       except:
         print('error con la placa')
         break
         
     if self.running & (i >= maxx):
-      self.lastItem = 999999
+      self.lastItemIndex = None
       self.running = False
-      self.itemRunning = None
 
   def smokeAction(self, exp):
     if (exp.smoke) :
@@ -95,17 +97,20 @@ class ExperienceExecutor():
       self.error = True
       raise Exception('Error con la placa NI DAQ')
 
+  def signalAction(self, exp, isRestart):
 
-  def signalAction(self, exp):
-
-    tSignal = threading.Thread(target=self.generateSignal, args=(exp,))
+    tSignal = threading.Thread(target=self.generateSignal, args=(exp,isRestart))
     tSignal.start()
 
-    if self.read_enabled:
-        tReadData = threading.Thread(target=self.readDataNIDAQ, args=(exp,exp.duration,))
+    leftTime = exp.duration
+    if isRestart:
+        leftTime = math.ceil(self.experienceCont.durationLeft)
+    
+    if self.read_enabled:    
+        tReadData = threading.Thread(target=self.readDataNIDAQ, args=(exp,leftTime,))
         tReadData.start()
 
-    tTimer = threading.Thread(target=self._countdown, args=(exp.duration,))
+    tTimer = threading.Thread(target=self._countdown, args=(leftTime,))
     tTimer.start()
 
     tTimer.join()
@@ -113,26 +118,23 @@ class ExperienceExecutor():
     if self.read_enabled:
         tReadData.join()
 
-  def generateSignal(self, exp):
+  def generateSignal(self, exp, isRestart):
     self.volts.setText(str(exp.fehd) + ' KHz')
     self.status.setText('Ejecutando señal')
     QApplication.processEvents()
-    self.experienceCont = ExperienceController(exp)
-    self.experienceCont.start()
-
-  def regenerateSignal(self, exp):
-    self.volts.setText(str(exp.fehd) + ' KHz')
-    self.status.setText('Ejecutando señal')
-    QApplication.processEvents()
-    self.experienceCont.restart()
+    if isRestart:
+        self.experienceCont.restart()
+    else:
+        self.experienceCont = ExperienceController(exp)
+        self.experienceCont.start()
 
   def readDataNIDAQ(self, exp, time):
     try:
       self.dataReader = datareader.DataReader(exp, self.maxvolt, self.readvlbl)
-      self.drleft = self.dataReader.execute(time)
-      if self.drleft == 0:
+      result = self.dataReader.execute(time)
+      if result == 0:
         print('lectura ok')
-      elif self.drleft > 0:
+      elif result > 0:
         print('hay que volver a ejecutar porque se detuvo')
       else:
         print('Ocurrio otro error')
@@ -142,7 +144,7 @@ class ExperienceExecutor():
 
   def _countdown(self, start):
     self.counterObj = timecounter.TimeCounter(self.counter)
-    self.leftDurationCounter = self.counterObj.execute(start)
+    self.counterObj.execute(start)
 
   def pauseExecution(self):
     print('pause executor')
@@ -159,6 +161,7 @@ class ExperienceExecutor():
       self.dataReader.stop()
     self.counterObj.stop()
     self.running = False
+    self.lastItemIndex = None
 
   def killSignalGen(self):
     sleep(1)
@@ -168,23 +171,4 @@ class ExperienceExecutor():
       self.counterObj.stop()
     self.running = False
     self.error = True
-
-  def restart(self):
-    print('restart executor')
-    exp = self.itemRunning
-
-    tSignal = threading.Thread(target=self.regenerateSignal, args=(exp,))
-    tSignal.start()
-
-    if self.read_enabled:
-        tReadData = threading.Thread(target=self.readDataNIDAQ, args=(exp,self.drleft))
-        tReadData.start()
-
-    tTimer = threading.Thread(target=self._countdown, args=(self.leftDurationCounter,))
-    tTimer.start()
-
-    tTimer.join()
-    tSignal.join()
-
-    if self.read_enabled:
-        tReadData.join()
+    self.lastItemIndex = None

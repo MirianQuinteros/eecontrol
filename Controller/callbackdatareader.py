@@ -40,9 +40,9 @@ class CallbackTask(Task):
         
         mm = max(self.data)
 
-        for i in range(1,self.points,300):
-            self.updateVoltageSignal.setText(str(round(self.data[i], 2)) + 'KV')
-            QApplication.processEvents()
+        #for i in range(1,self.points,300):
+            #self.updateVoltageSignal.setText(str(round(self.data[i], 2)) + 'KV')
+            #QApplication.processEvents()
 
 
         if mm > self.limit :

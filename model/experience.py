@@ -52,7 +52,7 @@ class Experience():
     
     period = 1/self.fforz
     freq = self.fehd * 1000 # to KHz
-    chunk = producer.produceChunk(frequency, period , self.dc)
+    chunk = producer.produceChunk(freq, period , self.dc, 10)
     
     if chunk is None:
         print('ERROR producing chunk')
@@ -60,7 +60,7 @@ class Experience():
     
     x = 0
     while (x <= length) & (self.stop == False):
-        x+=period
+        x+=(period*10)
         stream.write(chunk.astype(numpy.float32).tostring())
 
     if x < length:

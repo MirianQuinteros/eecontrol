@@ -13,7 +13,7 @@ class SignalProducer():
 		self.volume = vol
 		self.sigType = sigType
 
-	def produceChunk(self, freq, length, dc):
+	def produceChunk(self, freq, length, dc, n=1):
 
 		rate=44100
 		chunk = []
@@ -29,8 +29,11 @@ class SignalProducer():
 		total = len(chunk)
 		highLevel = int(round(total * (100 - dc) / 100))
 		chunk[total - highLevel :] = chunk[total - highLevel:] * 0
+		chunks = []
 
-		return chunk
+		for i in range(n):
+			chunks = numpy.append(chunks, chunk)
+		return chunks
 
 	def sine(self, frequency, length, rate):
 		length = int(length * rate)
