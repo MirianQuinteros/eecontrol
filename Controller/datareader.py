@@ -7,20 +7,20 @@ import numpy, time, threading
 from model import dralert
 import matplotlib.pyplot as plt
 from Controller import callbackdatareader
+from Exceptions import MaxVoltageException
 
 class DataReader():
 
-	def __init__(self, exp, securityFlag, voltLbl):
+	def __init__(self, exp, securityFlag):
 		self.exp = exp
 		self.securityFlag = securityFlag
-		self.voltLbl = voltLbl
 		self.faltante = None
 
 	def execute(self, start):
 		try:
 			filename = self.getFileName()
 			task = callbackdatareader.CallbackTask(self.exp.fehd, self.securityFlag,
-													 self.voltLbl, filename)
+													filename)
 			task.StartTask()
 			self.runTimer(start, task)
 		except Exception as errr:
@@ -30,7 +30,7 @@ class DataReader():
 
 	def end(self, task, filename):
 		if self.faltante == -1:
-			raise Exception('Corte de señal por seguridad: superó el valor indicado')
+			raise MaxVoltageException("er")
 		else:
 			return self.faltante
 
@@ -54,7 +54,7 @@ class DataReader():
 		task.ClearTask()
 		
 		if voltStatusOk == False:
-			self.faltante = -1
+			self.faltante = -1 #Hubo un error
 		elif self.timerRun == False: #frenado manual
 			self.faltante = secs - i
 		else:

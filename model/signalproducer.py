@@ -9,23 +9,16 @@ import matplotlib.pyplot as plt
 
 class SignalProducer():
 
-	def __init__(self, vol, sigType):
+	def __init__(self, vol):
 		self.volume = vol
-		self.sigType = sigType
 
 	def produceChunk(self, freq, length, dc, n=1):
 
 		rate=44100
 		chunk = []
 
-		if self.sigType == 'Seno':
-			chunk = self.sine(freq, length, rate) * self.volume
-		elif self.sigType == 'Coseno':
-			chunk = self.cos(freq, length, rate) * self.volume
-		else:
-			print('error in typesignal')
-			return None
-
+		chunk = self.sine(freq, length, rate) * self.volume
+		
 		total = len(chunk)
 		highLevel = int(round(total * (100 - dc) / 100))
 		chunk[total - highLevel :] = chunk[total - highLevel:] * 0

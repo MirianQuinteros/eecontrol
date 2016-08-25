@@ -6,11 +6,12 @@ from time import sleep
 import threading, logging, math
 from PyDAQmx import *
 from Controller import ExperienceController, datareader, timecounter
+from Exceptions import MaxVoltageException
 
 class ExperienceExecutor():
 
   def __init__(self, experiences, status, volts, smoke, waiting,
-               counter, maxvolt, expId, readvlbl, read_enabled):
+               counter, maxvolt, expId, read_enabled):
     self.items = experiences
     self.status = status
     self.volts = volts
@@ -19,7 +20,6 @@ class ExperienceExecutor():
     self.counter = counter
     self.maxvolt = maxvolt
     self.expIdLabel = expId
-    self.readvlbl = readvlbl
     self.read_enabled = read_enabled
     self.running = False
     self.lastItemIndex = None
@@ -85,13 +85,14 @@ class ExperienceExecutor():
 
   def genFunction(self, time=3):
     try:
-      value = 1.3
+      value = 2
       task = Task()
       task.CreateAOVoltageChan("Dev1/ao0","",0,5.0,DAQmx_Val_Volts,None)
       task.StartTask()
       task.WriteAnalogScalarF64(1,5.0,value,None)
-      task.StopTask()
       sleep(time)
+      task.WriteAnalogScalarF64(1,5.0,0,None)
+      task.StopTask()
     except Exception as ade:
       print('Error n la generacion de func' + str(ade))
       self.error = True
@@ -130,7 +131,7 @@ class ExperienceExecutor():
 
   def readDataNIDAQ(self, exp, time):
     try:
-      self.dataReader = datareader.DataReader(exp, self.maxvolt, self.readvlbl)
+      self.dataReader = datareader.DataReader(exp, self.maxvolt)
       result = self.dataReader.execute(time)
       if result == 0:
         print('lectura ok')
@@ -138,6 +139,9 @@ class ExperienceExecutor():
         print('hay que volver a ejecutar porque se detuvo')
       else:
         print('Ocurrio otro error')
+    except MaxVoltageException as eee:
+      print('Maximo voltaje alcanzado ' + str(eee))
+      self.killSignalGen('ERROR_SEC')
     except Exception as ade:
       print('Ocurrió una excepcion ' + str(ade) )
       self.killSignalGen()
@@ -163,12 +167,12 @@ class ExperienceExecutor():
     self.running = False
     self.lastItemIndex = None
 
-  def killSignalGen(self):
+  def killSignalGen(self, error=''):
     sleep(1)
     if self.experienceCont is not None:
       self.experienceCont.stop()
     if self.counterObj is not None:
       self.counterObj.stop()
     self.running = False
-    self.error = True
+    self.error = error
     self.lastItemIndex = None

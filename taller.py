@@ -6,7 +6,7 @@ from PyQt4.QtGui import *
 from PyQt4 import QtCore, QtGui, uic
 from PyQt4 import QtCore as qtcore
 from time import sleep
-from model import Experience, ExperienceExecutor, DataReaderAlert, tablemodel
+from model import Experience, ExperienceExecutor, DataReaderAlert, SecurityAlert, tablemodel
 from view import SignalTypeDelegate, OptimoDialog, TestSignalDialog
 from Controller import ExpFileManager
 from Utils import ExpEncoder
@@ -23,13 +23,16 @@ class WorkerStart(qtcore.QThread):
         qtcore.QThread.__init__(self, parent=app)
         self.executor = executor
         self.signal = qtcore.SIGNAL("signal")
+        self.securitySignal = qtcore.SIGNAL("secsignal")
         self.signalhab = qtcore.SIGNAL("signalhab")
     
     def run(self):
         logging.debug('Lanzado')
         self.executor.startExecution()
-        if self.executor.error:
+        if self.executor.error == '':
             self.emit(self.signal, "")
+        if self.executor.error == 'ERROR_SEC':
+            self.emit(self.securitySignal, "")
         self.emit(self.signalhab, "")
         logging.debug('Deteniendo')
 
@@ -41,12 +44,13 @@ class EEControlWindowClass(QtGui.QMainWindow, form_class):
       self.executor = ExperienceExecutor(self.tableView.model().getRows(),
                     self.status, self.label_volts,
                     self.smoke_time, self.waiting_time, self.lcdNumber,
-                    self.max_voltage.value(), self.expId, self.readvlbl,
+                    self.max_voltage.value(), self.expId,
                     self.read_enabled.isChecked())
 
       startThread = WorkerStart(self.executor)
       self.connect(startThread, startThread.signal, self.showError)
       self.connect(startThread, startThread.signalhab, self.habilitarTabla)
+      self.connect(startThread, startThread.securitySignal, self.showErrorSecurity)
       startThread.start()
       self.start_btn.setEnabled(False)
       self.pause_btn.setEnabled(True)
@@ -107,6 +111,11 @@ class EEControlWindowClass(QtGui.QMainWindow, form_class):
       msg = DataReaderAlert()
       msg.exec_()
 
+  def showErrorSecurity(self):
+      self.running = False
+      msg = SecurityAlert()
+      msg.exec_()
+
   def habilitarTabla(self):
       self.running = False
       self.start_btn.setEnabled(True)
@@ -121,13 +130,13 @@ class EEControlWindowClass(QtGui.QMainWindow, form_class):
       self.data=[]
 
       tmodel = tablemodel.MyTableModel(self, self.data, constants.columnFields, constants.columnHeaders)
-      self.tableView.setItemDelegateForColumn(3,SignalTypeDelegate())
+      #self.tableView.setItemDelegateForColumn(3,SignalTypeDelegate())
 
       self.tableView.setModel(tmodel)
       self.tableView.setColumnWidth(0,40)
       self.tableView.setColumnWidth(1,140)
-      self.tableView.setColumnWidth(3,80)
-      self.tableView.setColumnWidth(6,90)
+      self.tableView.setColumnWidth(3,140)
+      self.tableView.setColumnWidth(6,140)
       self.tableView.setColumnWidth(7,120)
     
       hh = self.tableView.horizontalHeader()

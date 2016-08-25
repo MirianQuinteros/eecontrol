@@ -26,7 +26,7 @@ class OptimusFinder():
 	def genTestSignal(self, freq):
 		
 		p = pyaudio.PyAudio()
-		generator = signalproducer.SignalProducer(1,'Seno')
+		generator = signalproducer.SignalProducer(1)
 		chunk = generator.produceChunk(freq, 3, 100)
 		stream = p.open(format=pyaudio.paFloat32,channels=1, rate=44100, output=1)
 		

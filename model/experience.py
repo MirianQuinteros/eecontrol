@@ -22,7 +22,6 @@ class Experience():
         self.duration = 30
         self.camera = False
         self.smoke = False
-        self.signalType = 'Seno'
     else :
         print(jsonObj)
         self.__dict__ = json.loads(jsonObj)
@@ -37,7 +36,7 @@ class Experience():
     stream = p.open(format=pyaudio.paFloat32,
                     channels=1, rate=44100, output=1)
 
-    producer = signalproducer.SignalProducer(volume, self.signalType)
+    producer = signalproducer.SignalProducer(volume)
 
     durationLeft = self.play_tone(stream, producer, length=duration)
     

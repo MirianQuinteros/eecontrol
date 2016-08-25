@@ -50,7 +50,7 @@ class TestSignalDialog(QDialog):
         period = 1/self.fforz.value()
         stream = p.open(format=pyaudio.paFloat32,
                     channels=1, rate=44100, output=1)
-        prod = SignalProducer(1, 'Seno')
+        prod = SignalProducer(1)
         chunk = prod.produceChunk(self.fqehd.value(), period, self.dc.value())
         prod.plotSignal(chunk)
         for x in range(0,50):
